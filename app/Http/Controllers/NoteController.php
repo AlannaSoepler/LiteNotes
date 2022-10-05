@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use illuminate\Support\Str;
 use App\Models\Note;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,8 @@ class NoteController extends Controller
      */
     public function index()
     {
-        $notes = Note::where('user_id', Auth::id())->latest('updated_at')->paginate(5);
+        // $notes=Auth::user()->notes()->latest('updated_at')->paginate(5);
+        $notes=Note::whereBelongsTo(Auth::user())->latest('updated_at')->paginate(5);
         return view('notes.index')->with('notes',$notes);
     }
 
@@ -41,8 +43,8 @@ class NoteController extends Controller
             'title' => 'required|max:120',
             'text' => 'required'
         ]);
-        Note::create([
-            'user_id' => Auth::id(),
+        Auth::user()->notes()->create([
+            'uuid' => Str::uuid(),
             'title' => $request->title,
             'text' => $request->text
         ]);
@@ -55,9 +57,12 @@ class NoteController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function show($id)
+    public function show(Note $note)
     {
-        //
+        if(!$note->user->is(Auth::user())){
+            return abort(403);
+        }
+        return view('notes.show')->with('note', $note);
     }
 
     /**
@@ -66,9 +71,12 @@ class NoteController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function edit($id)
+    public function edit(Note $note)
     {
-        //
+        if(!$note->user->is(Auth::user())){
+            return abort(403);
+        }
+        return view('notes.edit')->with('note', $note);
     }
 
     /**
@@ -78,9 +86,22 @@ class NoteController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, Note $note)
     {
-        //
+        if(!$note->user->is(Auth::user())){
+            return abort(403);
+        }
+        
+        $request->validate([
+            'title' => 'required|max:120',
+            'text' => 'required'
+        ]);
+
+        $note -> update([
+            'title' => $request->title,
+            'text' => $request->text
+        ]);
+        return to_route('notes.show', $note)->with('success', 'Note updated successfully');
     }
 
     /**
@@ -89,8 +110,12 @@ class NoteController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy(Note $note)
     {
-        //
+        if(!$note->user->is(Auth::user())){
+            return abort(403);
+        }
+        $note->delete();
+        return to_route('notes.index')->with('success', 'Note moved to trash successfully');
     }
 }
